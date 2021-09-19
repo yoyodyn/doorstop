@@ -19,6 +19,8 @@ from doorstop.core.types import is_item, is_tree, iter_documents, iter_items
 EXTENSIONS = (
     'markdown.extensions.extra',
     'markdown.extensions.sane_lists',
+    'mdx_outline',
+    'mdx_math',
     PlantUMLMarkdownExtension(
         server='http://www.plantuml.com/plantuml',
         cachedir=tempfile.gettempdir(),
@@ -28,7 +30,6 @@ EXTENSIONS = (
         alt='UML Diagram',
     ),
 )
-CSS = os.path.join(os.path.dirname(__file__), 'files', 'doorstop.css')
 HTMLTEMPLATE = 'sidebar'
 INDEX = 'index.html'
 MATRIX = 'traceability.csv'
@@ -168,9 +169,8 @@ def _lines_index(filenames, charset='UTF-8', tree=None):
         '<meta http-equiv="content-type" content="text/html; '
         'charset={charset}">'.format(charset=charset)
     )
-    yield '<style type="text/css">'
-    yield from _lines_css()
-    yield '</style>'
+    yield '<link rel="stylesheet" href="assets/doorstop/bootstrap.min.css" />'
+    yield '<link rel="stylesheet" href="assets/doorstop/general.css" />'
     yield '</head>'
     yield '<body>'
     # Tree structure
@@ -203,14 +203,14 @@ def _lines_index(filenames, charset='UTF-8', tree=None):
         # table
         yield '<h3>Item Traceability:</h3>'
         yield '<p>'
-        yield '<table>'
+        yield '<table class="table table-striped table-condensed">'
         # header
         for document in documents:  # pylint: disable=not-an-iterable
-            yield '<col width="100">'
+            yield '<col width="140">'
         yield '<tr>'
         for document in documents:  # pylint: disable=not-an-iterable
             link = '<a href="{p}.html">{p}</a>'.format(p=document.prefix)
-            yield ('  <th height="25" align="center"> {link} </th>'.format(link=link))
+            yield ('  <th height="25" align="left"> {link} </th>'.format(link=link))
         yield '</tr>'
         # data
         for index, row in enumerate(tree.get_traceability()):
@@ -222,8 +222,8 @@ def _lines_index(filenames, charset='UTF-8', tree=None):
                 if item is None:
                     link = ''
                 else:
-                    link = _format_html_item_link(item)
-                yield '  <td height="25" align="center"> {} </td>'.format(link)
+                    link = _format_html_item_link_index_table(item)
+                yield '  <td height="25" align="left"> {} </td>'.format(link)
             yield '</tr>'
         yield '</table>'
         yield '</p>'
@@ -483,6 +483,7 @@ def _lines_markdown(obj, **kwargs):
                 yield ""
 
         yield ""  # break between items
+        yield "***"  # horizontal rule between items
 
 
 def _format_level(level):
@@ -609,16 +610,32 @@ def _format_html_item_link(item, linkify=True):
         return str(item.uid)  # if not `Item`, assume this is an `UnknownItem`
 
 
+def _format_html_item_link_index_table(item, linkify=True):
+    """Format an item link in HTML."""
+    if linkify and is_item(item):
+        if item.header:
+            link = '<a href="{p}.html#{u}">{u}</a><br/>{h}'.format(
+                u=item.uid, h=item.header, p=item.document.prefix
+            )
+        else:
+            link = '<a href="{p}.html#{u}">{u}</a>'.format(
+                u=item.uid, p=item.document.prefix
+            )
+        return link
+    else:
+        return str(item.uid)  # if not `Item`, assume this is an `UnknownItem`
+
+
 def _format_md_label_links(label, links, linkify):
     """Join a string of label and links with formatting."""
     if linkify:
-        return "*{lb}* {ls}".format(lb=label, ls=links)
+        return "{lb} {ls}".format(lb=label, ls=links)
     else:
         return "*{lb} {ls}*".format(lb=label, ls=links)
 
 
 def _table_of_contents_md(obj, linkify=None):
-    toc = '### Table of Contents\n\n'
+    toc = '**Contents**\n\n'
 
     for item in iter_items(obj):
         if item.depth == 1:
@@ -633,6 +650,9 @@ def _table_of_contents_md(obj, linkify=None):
         elif item.header:
             heading = "{h}".format(h=item.header)
         else:
+            if settings.ENABLE_HEADERS and item.header:
+                heading = item.header
+            else:
             heading = item.uid
 
         if settings.PUBLISH_HEADING_LEVELS:
@@ -674,6 +694,7 @@ def _lines_html(
 
     if toc:
         toc_md = _table_of_contents_md(obj, True)
+        toc_md = '[Index](index.html) \n\n ' + toc_md  # Add a link to index
         toc_html = markdown.markdown(toc_md, extensions=extensions)
     else:
         toc_html = ''
