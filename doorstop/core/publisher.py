@@ -653,7 +653,7 @@ def _table_of_contents_md(obj, linkify=None):
             if settings.ENABLE_HEADERS and item.header:
                 heading = item.header
             else:
-            heading = item.uid
+                heading = item.uid
 
         if settings.PUBLISH_HEADING_LEVELS:
             level = _format_level(item.level)
