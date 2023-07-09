@@ -19,8 +19,6 @@ from doorstop.core.types import is_item, is_tree, iter_documents, iter_items
 EXTENSIONS = (
     'markdown.extensions.extra',
     'markdown.extensions.sane_lists',
-    'mdx_outline',
-    'mdx_math',
     PlantUMLMarkdownExtension(
         server='http://www.plantuml.com/plantuml',
         cachedir=tempfile.gettempdir(),
@@ -395,12 +393,15 @@ def _lines_markdown(obj, **kwargs):
     """
     linkify = kwargs.get('linkify', False)
     for item in iter_items(obj):
-
-        heading = '#' * item.depth
+        if item.depth > 6:
+            heading = '#' * 6
+        else:
+            heading = '#' * item.depth 
         level = _format_level(item.level)
+        
+        text_lines = item.text.splitlines()
 
         if item.heading:
-            text_lines = item.text.splitlines()
             # Level and Text
             if settings.PUBLISH_HEADING_LEVELS:
                 standard = "{h} {lev} {t}".format(
@@ -420,7 +421,7 @@ def _lines_markdown(obj, **kwargs):
                 if item.header:
                     uid = '{h} <small>{u}</small>'.format(h=item.header, u=item.uid)
                 else:
-                    uid = '{u}'.format(u=item.uid)
+                    uid = '<small>[{u}]</small>'.format(u=item.uid)
 
             # Level and UID
             if settings.PUBLISH_BODY_LEVELS:
@@ -428,13 +429,15 @@ def _lines_markdown(obj, **kwargs):
             else:
                 standard = "{h} {u}".format(h=heading, u=uid)
 
+            t=text_lines[0] if text_lines else ''
+
             attr_list = _format_md_attr_list(item, True)
-            yield standard + attr_list
+            yield standard + " " + t
 
             # Text
             if item.text:
-                yield ""  # break before text
-                yield from item.text.splitlines()
+                #yield ""  # break before text
+                yield from text_lines[1:]
 
             # Reference
             if item.ref:
@@ -482,8 +485,8 @@ def _lines_markdown(obj, **kwargs):
                     yield "| {} | {} |".format(attr, item.attribute(attr))
                 yield ""
 
-        yield ""  # break between items
-        yield "***"  # horizontal rule between items
+        #yield ""  # break between items
+        #yield "***"  # horizontal rule between items
 
 
 def _format_level(level):
